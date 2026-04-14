@@ -1,7 +1,7 @@
 // src/app/company/company-edit/company-edit.component.ts
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { Company } from '../../models/company';
-import { Component, OnInit } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CompanyService } from '../company.service';
 import { AsyncPipe, CommonModule, JsonPipe } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
@@ -9,8 +9,8 @@ import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { ActivatedRoute, Router } from '@angular/router';
 
 @Component({
   selector: 'app-company-edit',
@@ -22,62 +22,59 @@ import { Router } from '@angular/router';
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
-    MatButtonModule,
-    MatSnackBarModule
+    MatButtonModule
   ],
   standalone: true,
   templateUrl: './company-edit.html',
   styleUrl: './company-edit.css'
 })
 export class CompanyEdit implements OnInit {
-  company$: Observable<Company | undefined>;
-
-  constructor(
-    private companyService: CompanyService,
-    private snackBar: MatSnackBar,
-    private router: Router
-  ) {
-    this.company$ = this.companyService.getCompanyObservable();
-  }
+  company$: Observable<Company | undefined> | undefined;
+  companyId?: string | null;
+  editableCompany: Company | undefined;
+  private _snackBar = inject(MatSnackBar);
+  private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private companyService = inject(CompanyService);
 
   ngOnInit() {
+    // Get the ID from the route and fetch the corresponding company as an Observable
+    this.route.paramMap.subscribe(params => {
+      const companyId = params.get('id');
+      this.companyId = companyId;
+      if (!companyId || companyId === 'new') {
+        // Creation flow: provide a default company object (no id) so the form renders
+        const defaultCompany: Company = { name: '' } as Company;
+        this.company$ = of(defaultCompany);
+        this.editableCompany = { ...defaultCompany };
+        return;
+      }
+      // Editing existing doc
+      this.company$ = this.companyService.getCompanyObservable(companyId);
+      // Keep an editable copy for ngModel two-way binding
+      this.company$.subscribe((company) => {
+        // ensure id is preserved in the editable copy for saving
+        console.log(company);
+        this.editableCompany = company ? { ...company } : undefined;
+      });
+    });
   }
 
-
-  // you can do this if you just want an example of how the save gets called.
-  // saveCompany(company: Company) {
-  // We simply call the async method without .then()
-  // this.companyService.saveCompany(company);
-  // }
-
-  // Here we are also handing errors and showing a snackbar, adding a nicer experience for whoever is using our app to be notified that what they        // did was successsful
   async saveCompany(company: Company) {
+    if (!company) { return; }
     try {
-      await this.companyService.saveCompany({ name: company.name });
-      //await this.companyService.saveCompany(company);
-      console.log('Company saved successfully');
-      this.snackBar.open('Company saved successfully', 'Close', { duration: 3000 });
-    } catch (err) {
-      console.error('Error saving company:', err);
-      this.snackBar.open('Failed to save company', 'Close', { duration: 3000 });
-    }
-  }
-
-  async editCompany(company: any) {
-    try {
-      // This is a partial update object with only a 'phone' property.
-      await this.companyService.editCompany({ phone: '123-456-7890' });
-      this.snackBar.open('Company updated', 'Close', { duration: 3000 });
-    } catch (err) {
-      console.error('Error editing company:', err);
-      this.snackBar.open('Failed to update company', 'Close', { duration: 3000 });
+      await this.companyService.saveCompany(company);
+      await this.router.navigate(['/company/all']);
+      this._snackBar.open('Company saved successfully', 'Close', { duration: 3000 });
+    } catch (e) {
+      console.error('Save failed', e);
+      this._snackBar.open('Failed to save company', 'Close', { duration: 3000 });
     }
   }
 
   async deleteCompany() {
-    await this.companyService.deleteCompany();
-    // After deletion, navigate to the main page
-    this.router.navigate(['/']);
+    await this.companyService.deleteCompany(this.companyId as string);
+    this.router.navigate(['/company/all']);
   }
 
 }
