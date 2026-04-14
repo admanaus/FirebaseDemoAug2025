@@ -11,6 +11,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
+import { Company } from '../../models/company';
+import { CompanyService } from '../../company/company.service';
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
   selector: 'app-contact-edit',
@@ -22,7 +25,8 @@ import { ActivatedRoute, Router } from '@angular/router';
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
-    MatButtonModule
+    MatButtonModule,
+    MatSelectModule
   ],
   standalone: true,
   templateUrl: './contact-edit.html',
@@ -30,14 +34,17 @@ import { ActivatedRoute, Router } from '@angular/router';
 })
 export class ContactEdit implements OnInit {
   contact$: Observable<Contact | undefined> | undefined;
+  companies$: Observable<Company[]> | undefined; // <- NEW
   contactId?: string | null;
   editableContact: Contact | undefined;
   private _snackBar = inject(MatSnackBar);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private contactService = inject(ContactService);
+  private companyService = inject(CompanyService); // <- NEW
 
   ngOnInit() {
+    this.companies$ = this.companyService.getCompaniesObservable(); // <- NEW
     // Get the ID from the route and fetch the corresponding contact as an Observable
     this.route.paramMap.subscribe(params => {
       const contactId = params.get('id');

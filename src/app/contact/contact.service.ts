@@ -9,7 +9,9 @@ import {
   doc,
   docData,
   Firestore,
-  updateDoc
+  query,
+  updateDoc,
+  where
 } from '@angular/fire/firestore';
 import { from, Observable, of, throwError } from 'rxjs';
 import { catchError } from 'rxjs';
@@ -37,9 +39,10 @@ export class ContactService {
     );
   }
 
-  // src/app/contact/contact.service.ts
-  getContactsObservable(): Observable<Contact[]> {
-    return (collectionData(this.getContactsColRef(), { idField: 'id' }) as Observable<Contact[]>).pipe(
+  getContactsObservable(companyId: string | null = null): Observable<Contact[]> {
+    const contactsCollection = this.getContactsColRef();
+    const filtered = companyId ? query(contactsCollection, where('companyId', '==', companyId)) : contactsCollection;
+    return (collectionData(filtered, { idField: 'id' }) as Observable<Contact[]>).pipe(
       catchError(err => this.errorHandler(err))
     );
   }
